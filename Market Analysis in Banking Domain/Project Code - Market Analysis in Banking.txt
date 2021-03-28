@@ -1,0 +1,71 @@
+import org.apache.spark.sql._
+import org.apache.spark.sql.types._
+import sqlContext.implicits._
+
+Load and Create Spark Data Frame
+
+val df = sqlContext.read.format("com.databricks.spark.csv").option("header","true").option("inferSchema","true").option("delimiter",";").load("/FileStore/tables/bank_full-bd3df.csv")
+df.show()
+
+Marketing Success Rate
+
+val suc = df.filter($"y" === "yes").count.toFloat / df.count.toFloat *100
+
+
+Marketing Fail Rate
+
+val fail = df.filter($"y" === "no").count.toFloat / df.count.toFloat *100
+
+Marketing success/failure Rate
+
+display(df)
+
+Max, Min, Min, age of average target customer
+
+import org.apache.spark.sql.functions.{min, max, avg}
+df.agg(max($"age"),min($"age"), avg($"age")).show()
+
+Quality of clients by checking average balance, median balance of clients 
+
+val medBal = sql("SELECT max(balance) as max, min(balance) as min, avg(balance) as average, percentile_approx(balance, 0.5) as median  FROM sample");
+medBal.show()
+
+Did age mattered for subscription to deposit?
+
+df.groupBy("y").agg(avg($"age")).show
+
+val age = sqlContext.sql("select age, count(*) as number from bank where y='yes' group by age order by
+number desc ").show()
+
+Did marital status mattered for subscription to deposit?
+
+df.groupBy($"y".alias("Did the customer Subscribed")).agg(count($"marital").alias("Marital Count")).show
+
+val marital = sqlContext.sql("select marital, count(*) as number from bank where y='yes' group by
+marital order by number desc ").show()
+
+Did age and marital status together mattered for subscription to deposit scheme? 
+
+df.groupBy("marital","y").count.sort($"count").show
+
+val age_marital = sqlContext.sql("select age, marital, count(*) as number from bank where y='yes' group
+by age,marital order by number desc ").show()
+
+Feature engineering for age column and find right age effect on campaign
+
+import org.apache.spark.sql.functions.udf
+
+def ageToCategory = udf((age:Int) => {
+      age match {
+      case t if t < 30 => "young"
+      case t if t > 65 => "Old"
+      case _ => "mid"
+      }
+      }
+     )
+
+val newdf = df.withColumn("agecat",ageToCategory(df("age"))) // create newcolumn
+newdf.groupBy("agecat","y").count().sort($"count".desc).show
+
+
+
